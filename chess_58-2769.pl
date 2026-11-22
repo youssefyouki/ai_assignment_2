@@ -1,55 +1,160 @@
 /*
   Introduction to AI - Winter 2026 - Assignment 2
   Team members (name, ID, tutorial):
-    1. youssef hazem, 58-2769, 12
-    2. monica victor, <ID>, <tutorial>
+    1. <name>, <ID>, <tutorial>
+    2. <name>, <ID>, <tutorial>
 */
 
 % Switch KB by (un)commenting. Never copy KB facts into this file.
 :- include('KB1.pl').
-% :- include('KB2.pl').
+%:- include('KB2.pl').
 
 /* =====================================================================
-   SHARED CONTRACT  (both people code against these names; do not rename)
+   SHARED CONTRACT  (UPDATED - see note on the fluent below)
    ---------------------------------------------------------------------
    Situations:  s0  |  result(Action, S)      Actions: k(H,V) | b(H,V)
+   Cells are (Column,Row), Column in 1..W, Row in 1..H.
 
-   FLUENTS (max 2 allowed):
-     knight(X, Y, S)  : a knight stands on cell (X,Y) in situation S.
-                        X = column in 1..W, Y = row in 1..H, S = situation.
-     bishop(X, Y, S)  : a bishop stands on cell (X,Y) in situation S.
-                        Same arguments as knight/3.
+   FLUENT (we use ONE fluent; the limit is two):
+     pieces(Ks, Bs, S)
+        Ks : list of the cells (X,Y) holding a KNIGHT in situation S.
+        Bs : list of the cells (X,Y) holding a BISHOP in situation S.
+        S  : situation, s0 or result(Action, S0).
+     Why one list-valued fluent: an action k(H,V) does not say WHICH knight
+     moves. The mover is chosen inside the successor-state axiom, together
+     with the poss check, from ONE evaluation of the previous situation.
+     Separate fluents knight(X,Y,S)/bishop(X,Y,S) are each evaluated
+     independently, so they could pick different movers for the same
+     action and give an inconsistent board.
 
-   HELPERS (no situation argument, pure geometry)          -> PERSON A
-     inside(H, V)             : (H,V) lies on the grid.
-     knight_move(A, B, H, V)  : knight can go (A,B) -> (H,V).
-     bishop_move(A, B, H, V)  : bishop can go (A,B) -> (H,V), A,B =/= H,V.
-     empty(H, V, S)           : no knight and no bishop on (H,V) in S.
+   PERSON A (pure movement rules, no situations):
+     inside(H,V)             : (H,V) is on the grid.
+     knight_move(A,B,H,V)    : knight can go (A,B) -> (H,V). Must also work
+                               when H,V are unbound (generate the moves).
+     bishop_move(A,B,H,V)    : bishop diagonal move, same requirement.
+     free(H,V,Ks,Bs)         : (H,V) holds no knight and no bishop.
 
-   POSSIBILITY                                              -> PERSON A
-     poss(Action, S) : Action can be done in S (piece of that type can
-                       reach the cell, cell is inside the grid and empty).
-
-   SITUATION CALCULUS                                       -> PERSON B
-     knight/3 and bishop/3 : base case s0 (from knight_at/2, bishop_at/2)
-                             + successor-state axioms for result(A,S).
-     goal/3 and iterative deepening.
+   PERSON B (situation calculus): pieces/3, poss/4, goal/3 + iterative
+   deepening.
    ===================================================================== */
 
-%% ---------------- PERSON A: movement rules ----------------
-% TODO inside/2
-% TODO knight_move/4
-% TODO bishop_move/4
-% TODO empty/3
-% TODO poss/2
+%% ================= PERSON A: movement rules (TEMPORARY STAND-INS) =========
+%% Person A: replace this whole block with your own versions.
 
+inside(H, V) :-
+    grid(W, Hg),
+    between(1, W, H),
+    between(1, Hg, V).
 
-%% ---------------- PERSON B: situation calculus ----------------
-% TODO knight/3 : base case + successor-state axiom
-% TODO bishop/3 : base case + successor-state axiom
-% TODO goal/3 + iterative deepening (call_with_depth_limit/3)
+knight_move(A, B, H, V) :-
+    member(DX-DY, [1-2, 2-1, 2-(-1), 1-(-2), (-1)-(-2), (-2)-(-1), (-2)-1, (-1)-2]),
+    H is A + DX,
+    V is B + DY.
 
+bishop_move(A, B, H, V) :-
+    grid(W, Hg),
+    N is max(W, Hg) - 1,
+    between(1, N, D),
+    member(SX, [1, -1]),
+    member(SY, [1, -1]),
+    H is A + SX * D,
+    V is B + SY * D.
 
-%% ---------------- TEMPORARY STUBS (delete once A's real poss/2 exists) ----
-% Lets B test fluents before A finishes. Remove this line when merging.
-% poss(_, _).
+free(H, V, Ks, Bs) :-
+    \+ memberchk((H,V), Ks),
+    \+ memberchk((H,V), Bs).
+
+%% ================= PERSON B: situation calculus ===========================
+
+/* ---- poss(Action, Ks, Bs, Rest) -----------------------------------------
+   Action is possible in a situation whose knights are Ks and bishops Bs.
+     - the destination (H,V) is inside the grid,
+     - it is empty (no captures, no two pieces on a cell),
+     - some piece of the right type can reach it with a legal move.
+   Rest is the list of that type's pieces LEFT BEHIND, i.e. the pieces other
+   than the one that moved. select/3 backtracks over every candidate mover,
+   so every legal choice of mover is explored.
+   The mover is picked first so knight_move/bishop_move can GENERATE the
+   destinations when the action is not yet known (planning mode).
+   Bishops are never blocked on the way; only the destination matters. */
+poss(k(H,V), Ks, Bs, Rest) :-
+    select((P,Q), Ks, Rest),
+    knight_move(P, Q, H, V),
+    inside(H, V),
+    free(H, V, Ks, Bs).
+poss(b(H,V), Ks, Bs, Rest) :-
+    select((P,Q), Bs, Rest),
+    bishop_move(P, Q, H, V),
+    inside(H, V),
+    free(H, V, Ks, Bs).
+
+/* ---- Fluent pieces(Ks, Bs, S) and its successor-state axioms -------------
+   Initial situation: read from the KB. */
+pieces(Ks, Bs, s0) :-
+    findall((X,Y), knight_at(X,Y), Ks),
+    findall((X,Y), bishop_at(X,Y), Bs).
+
+/* Successor-state axiom, action k(H,V) (knight moves to (H,V)):
+     knights after = (H,V)  [made true by the action]
+                     + every knight that was there before and did not move
+                       (the mover is the one removed by poss/4);
+     bishops after = bishops before                 [frame: untouched]. */
+pieces(Ks, Bs, result(k(H,V), S)) :-
+    pieces(Ks0, Bs, S),
+    poss(k(H,V), Ks0, Bs, Rest),
+    Ks = [(H,V)|Rest].
+
+/* Successor-state axiom, action b(H,V) (bishop moves to (H,V)):
+     bishops after = (H,V) + every bishop that did not move;
+     knights after = knights before                 [frame: untouched]. */
+pieces(Ks, Bs, result(b(H,V), S)) :-
+    pieces(Ks, Bs0, S),
+    poss(b(H,V), Ks, Bs0, Rest),
+    Bs = [(H,V)|Rest].
+
+/* ---- goal/3 ---------------------------------------------------------------
+   goal((KX,KY),(BX,BY),S): in situation S some knight is on (KX,KY) and
+   some bishop is on (BX,BY).
+   - S given (a full plan): just CHECK it, no search (so wrong plans fail
+     finitely instead of looping).
+   - S unbound: FIND a plan with iterative deepening.                      */
+goal(K, B, S) :-
+    ground(S), !,
+    holds(K, B, S).
+goal(K, B, S) :-
+    achievable(K, B),
+    ids(K, B, S).
+
+holds(K, B, S) :-
+    pieces(Ks, Bs, S),
+    memberchk(K, Ks),
+    memberchk(B, Bs).
+
+/* Cheap impossibility tests so that unreachable goals fail instead of
+   deepening forever: both cells on the grid, different cells, and a bishop
+   never changes square colour, so some bishop must start on the target's
+   colour. */
+achievable((KX,KY), (BX,BY)) :-
+    inside(KX, KY),
+    inside(BX, BY),
+    (KX,KY) \== (BX,BY),
+    bishop_at(X, Y),
+    (X + Y) mod 2 =:= (BX + BY) mod 2, !.
+
+/* Iterative deepening on the NUMBER OF MOVES: try plans of 0 moves, then 1,
+   then 2, ... Each round builds an unbound plan skeleton of exactly N moves
+   (plan_shape/2) and lets pieces/3 fill in the actions. Every round is
+   finite, so Prolog's depth-first search cannot run away, and the first plan
+   found is a shortest one. (call_with_depth_limit/3 bounds call-stack depth,
+   not move count, which returned longer plans first, so it is not used.) */
+ids(K, B, S) :-
+    between(0, inf, N),
+    plan_shape(N, S),
+    holds(K, B, S).
+
+% plan_shape(N, S): S = result(_, result(_, ... s0)) with N unbound actions.
+plan_shape(0, s0).
+plan_shape(N, result(_, S)) :-
+    N > 0,
+    N1 is N - 1,
+    plan_shape(N1, S).
