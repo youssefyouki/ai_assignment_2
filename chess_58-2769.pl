@@ -39,18 +39,41 @@
    ===================================================================== */
 
 %% ================= PERSON A: movement rules (TEMPORARY STAND-INS) =========
-%% Person A: replace this whole block with your own versions.
-
+/* inside(H,V): the cell (H,V) is on the board.
+   H is the column (1..W) and V is the row (1..H); grid(W,Hg) comes from
+   the knowledge base. If H and V are unbound, this lists every cell. */
 inside(H, V) :-
     grid(W, Hg),
     between(1, W, H),
     between(1, Hg, V).
 
+/* knight_move(A,B,H,V): a knight on (A,B) can jump to (H,V).
+   A knight moves in an L-shape: 2 cells in one direction and 1 cell
+   sideways. That gives 8 possible jumps, written as (change in column
+   - change in row). If H,V are known this checks the jump; if they are
+   unbound it generates all 8 destinations. It does NOT check the board
+   edges: poss/4 calls inside/2 for that. */
 knight_move(A, B, H, V) :-
-    member(DX-DY, [1-2, 2-1, 2-(-1), 1-(-2), (-1)-(-2), (-2)-(-1), (-2)-1, (-1)-2]),
+    member(DX-DY, [1-2, 2-1, 2-(-1), 1-(-2),
+                   (-1)-(-2), (-2)-(-1), (-2)-1, (-1)-2]),
     H is A + DX,
     V is B + DY.
 
+/* bishop_move(A,B,H,V): a bishop on (A,B) can go to (H,V).
+   A bishop moves diagonally by any distance, and other pieces never block
+   it (only the destination must be empty, which free/4 checks).
+
+   Clause 1 (destination known): it is a diagonal move when the distance
+   across equals the distance up/down, and the bishop really moves
+   (H differs from A). The cut stops Prolog from trying clause 2.
+
+   Clause 2 (destination unknown): generate every diagonal cell by trying
+   each distance D and each of the 4 diagonal directions. Cells outside
+   the board are removed later by inside/2. */
+bishop_move(A, B, H, V) :-
+    nonvar(H), nonvar(V), !,
+    H =\= A,
+    abs(H - A) =:= abs(V - B).
 bishop_move(A, B, H, V) :-
     grid(W, Hg),
     N is max(W, Hg) - 1,
@@ -60,6 +83,9 @@ bishop_move(A, B, H, V) :-
     H is A + SX * D,
     V is B + SY * D.
 
+/* free(H,V,Ks,Bs): cell (H,V) is empty. Ks is the list of knight cells
+   and Bs the list of bishop cells, so the cell must be in neither list.
+   This is what enforces "no captures and no two pieces on one cell". */
 free(H, V, Ks, Bs) :-
     \+ memberchk((H,V), Ks),
     \+ memberchk((H,V), Bs).
