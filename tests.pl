@@ -1,5 +1,5 @@
-% Usage:  swipl -l chess_YOURID.pl tests.pl      then:   ?- run_kb1.   or   ?- run_kb2.
-% Include the matching KB at the top of chess_YOURID.pl first!
+% Usage:  swipl -l chess_58-2769.pl tests.pl      then:   ?- run_kb1.   or   ?- run_kb2.
+% Include the matching KB at the top of chess_58-2769.pl first!
 % "find" tests: goal must succeed and the returned plan must verify when checked.
 % "yes"/"no" tests: checking a given plan.
 

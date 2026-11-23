@@ -1,42 +1,14 @@
 /*
   Introduction to AI - Winter 2026 - Assignment 2
   Team members (name, ID, tutorial):
-    1. <name>, <ID>, <tutorial>
-    2. <name>, <ID>, <tutorial>
+    1. youssef hazem, 58-2769, 12
+    2. monica victor, 58-4753, 7
 */
 
 % Switch KB by (un)commenting. Never copy KB facts into this file.
-:- include('KB1.pl').
-%:- include('KB2.pl').
+%:- include('KB1.pl').
+:- include('KB2.pl').
 
-/* =====================================================================
-   SHARED CONTRACT  (UPDATED - see note on the fluent below)
-   ---------------------------------------------------------------------
-   Situations:  s0  |  result(Action, S)      Actions: k(H,V) | b(H,V)
-   Cells are (Column,Row), Column in 1..W, Row in 1..H.
-
-   FLUENT (we use ONE fluent; the limit is two):
-     pieces(Ks, Bs, S)
-        Ks : list of the cells (X,Y) holding a KNIGHT in situation S.
-        Bs : list of the cells (X,Y) holding a BISHOP in situation S.
-        S  : situation, s0 or result(Action, S0).
-     Why one list-valued fluent: an action k(H,V) does not say WHICH knight
-     moves. The mover is chosen inside the successor-state axiom, together
-     with the poss check, from ONE evaluation of the previous situation.
-     Separate fluents knight(X,Y,S)/bishop(X,Y,S) are each evaluated
-     independently, so they could pick different movers for the same
-     action and give an inconsistent board.
-
-   PERSON A (pure movement rules, no situations):
-     inside(H,V)             : (H,V) is on the grid.
-     knight_move(A,B,H,V)    : knight can go (A,B) -> (H,V). Must also work
-                               when H,V are unbound (generate the moves).
-     bishop_move(A,B,H,V)    : bishop diagonal move, same requirement.
-     free(H,V,Ks,Bs)         : (H,V) holds no knight and no bishop.
-
-   PERSON B (situation calculus): pieces/3, poss/4, goal/3 + iterative
-   deepening.
-   ===================================================================== */
 
 %% ================= PERSON A: movement rules (TEMPORARY STAND-INS) =========
 /* inside(H,V): the cell (H,V) is on the board.
